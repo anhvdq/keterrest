@@ -1,0 +1,16 @@
+[package]
+name = "keter-rest"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+async-trait = "0.1.80"
+axum = { version = "0.7.5", features = ["macros"] }
+axum-extra = "0.9.3"
+dotenv = "0.15.0"
+serde = "1.0.203"
+sqlx = { version = "0.7.4", features = ["runtime-tokio", "tls-native-tls", "postgres"] }
+tokio = { version = "1.4.0", features = ["rt", "rt-multi-thread", "macros"] }
+tower-http = { version = "0.5.2", features = ["trace"] }
+tracing = "0.1.40"
+tracing-subscriber = { version = "0.3.18", features = ["env-filter"] }
