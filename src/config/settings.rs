@@ -1,7 +1,7 @@
 /// Load all environment params specified in .env file
 /// Should be called first on the start of main function
 pub fn init() {
-    dotenv::dotenv().ok().expect("Failed to load .env file");
+    dotenv::dotenv().ok();
 }
 
 /// Used to get the specified env param
