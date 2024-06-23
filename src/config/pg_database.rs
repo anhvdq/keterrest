@@ -1,4 +1,4 @@
-use sqlx::postgres::{PgPoolOptions, PgConnectOptions};
+use sqlx::postgres::{PgConnectOptions, PgPoolOptions};
 use sqlx::{Error, Pool, Postgres};
 
 use super::settings;
@@ -29,7 +29,7 @@ impl PgDatabaseTrait for PgDatabase {
         if let Some(pass) = password {
             options = options.password(&pass);
         }
-        
+
         let pool = PgPoolOptions::new()
             .max_connections(5)
             .connect_with(options)

@@ -1,11 +1,13 @@
+use async_trait::async_trait;
+use bcrypt;
+use sqlx::Error as SqlxError;
+use sqlx::{Postgres, QueryBuilder};
+use std::sync::Arc;
+
 use crate::{
     config::pg_database::{PgDatabase, PgDatabaseTrait},
     model::user::{CreateUserDto, UpdateUserDto, User},
 };
-use async_trait::async_trait;
-use sqlx::{Postgres, QueryBuilder};
-use sqlx::Error as SqlxError;
-use std::sync::Arc;
 
 pub type UserRepository = Arc<dyn UserRepositoryTrait + Send + Sync>;
 
@@ -13,18 +15,23 @@ pub type UserRepository = Arc<dyn UserRepositoryTrait + Send + Sync>;
 pub trait UserRepositoryTrait {
     async fn create(&self, user: CreateUserDto) -> Result<User, SqlxError>;
     async fn get(&self, id: i32) -> Result<User, SqlxError>;
+    async fn get_by_email(&self, email: String) -> Result<User, SqlxError>;
     async fn get_all(&self) -> Result<Vec<User>, SqlxError>;
     async fn update(&self, id: i32, user: UpdateUserDto) -> Result<User, SqlxError>;
     async fn delete(&self, id: i32) -> Result<bool, SqlxError>;
 }
 
 pub struct UserRepositoryImpl {
+    hash_cost: u32,
     db_conn: Arc<PgDatabase>,
 }
 
 impl UserRepositoryImpl {
-    pub fn new(conn: Arc<PgDatabase>) -> Self {
-        UserRepositoryImpl { db_conn: conn }
+    pub fn new(hash_cost: u32, conn: Arc<PgDatabase>) -> Self {
+        UserRepositoryImpl {
+            hash_cost,
+            db_conn: conn,
+        }
     }
 }
 
@@ -32,16 +39,27 @@ impl UserRepositoryImpl {
 impl UserRepositoryTrait for UserRepositoryImpl {
     async fn create(&self, user: CreateUserDto) -> Result<User, SqlxError> {
         // Must include 'RETURNING *' to return the new record
-        sqlx::query_as(r#"INSERT INTO users(name, age) VALUES ($1, $2) RETURNING *"#)
-            .bind(user.name)
-            .bind(user.age)
-            .fetch_one(self.db_conn.get_pool())
-            .await
+        sqlx::query_as(
+            r#"INSERT INTO users(name, age, email, password) VALUES ($1, $2, $3, $4) RETURNING *"#,
+        )
+        .bind(user.name)
+        .bind(user.age)
+        .bind(user.email)
+        .bind(bcrypt::hash(user.password, self.hash_cost).unwrap())
+        .fetch_one(self.db_conn.get_pool())
+        .await
     }
 
     async fn get(&self, id: i32) -> Result<User, SqlxError> {
         sqlx::query_as(r#"SELECT * FROM users WHERE id = $1"#)
             .bind(id)
+            .fetch_one(self.db_conn.get_pool())
+            .await
+    }
+
+    async fn get_by_email(&self, email: String) -> Result<User, SqlxError> {
+        sqlx::query_as(r#"SELECT * FROM users WHERE email = $1"#)
+            .bind(email)
             .fetch_one(self.db_conn.get_pool())
             .await
     }
@@ -58,6 +76,9 @@ impl UserRepositoryTrait for UserRepositoryImpl {
 
         separated.push("name = ").push_bind_unseparated(user.name);
         separated.push("age = ").push_bind_unseparated(user.age);
+        separated
+            .push("password = ")
+            .push_bind_unseparated(bcrypt::hash(user.password, self.hash_cost).unwrap());
 
         let query = query_builder
             .push(" WHERE id = ")

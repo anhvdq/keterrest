@@ -19,7 +19,7 @@ where
     T: Serialize,
 {
     pub(crate) fn new(data: T) -> Self {
-        return ApiSuccess { data };
+        ApiSuccess { data }
     }
 }
 
@@ -35,7 +35,7 @@ pub struct ApiError {
 
 impl ApiError {
     pub fn new(message: Option<String>, status: u16) -> Self {
-        return ApiError { message, status };
+        ApiError { message, status }
     }
 }
 
@@ -71,22 +71,39 @@ impl From<JsonRejection> for ApiError {
 }
 
 #[allow(dead_code)]
-pub enum InternalError {
+pub enum ServiceError {
     Database(String),
-    NotFound,
+    NotFound(String),
+    FailedTokenCreation(String),
+    InvalidAuthToken,
+    MissingAuthToken,
+    ExpiredAuthToken,
     Unknown,
 }
 
-impl Into<ApiError> for InternalError {
-    fn into(self) -> ApiError {
-        match self {
-            InternalError::Database(msg) => {
+impl From<ServiceError> for ApiError {
+    fn from(val: ServiceError) -> Self {
+        match val {
+            ServiceError::Database(msg) => {
                 ApiError::new(Some(msg), StatusCode::INTERNAL_SERVER_ERROR.as_u16())
             }
-            InternalError::NotFound => {
-                ApiError::new(None, StatusCode::INTERNAL_SERVER_ERROR.as_u16())
+            ServiceError::NotFound(msg) => ApiError::new(Some(msg), StatusCode::NOT_FOUND.as_u16()),
+            ServiceError::FailedTokenCreation(msg) => {
+                ApiError::new(Some(msg), StatusCode::INTERNAL_SERVER_ERROR.as_u16())
             }
-            InternalError::Unknown => ApiError::new(
+            ServiceError::InvalidAuthToken => ApiError::new(
+                Some(String::from("Invalid authorization token")),
+                StatusCode::UNAUTHORIZED.as_u16(),
+            ),
+            ServiceError::MissingAuthToken => ApiError::new(
+                Some(String::from("Missing authorization token")),
+                StatusCode::UNAUTHORIZED.as_u16(),
+            ),
+            ServiceError::ExpiredAuthToken => ApiError::new(
+                Some(String::from("Expired authorization token")),
+                StatusCode::UNAUTHORIZED.as_u16(),
+            ),
+            ServiceError::Unknown => ApiError::new(
                 Some(String::from("Undefined error")),
                 StatusCode::INTERNAL_SERVER_ERROR.as_u16(),
             ),

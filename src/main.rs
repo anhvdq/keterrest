@@ -7,6 +7,7 @@ use config::{
 use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
 
 mod config;
+mod middleware;
 mod model;
 mod repository;
 mod router;
@@ -29,7 +30,7 @@ async fn main() {
     // Create database connection
     let db_conn = pg_database::PgDatabase::init()
         .await
-        .unwrap_or_else(|e| panic!("Database error: {}", e.to_string()));
+        .unwrap_or_else(|e| panic!("Database error: {}", e));
 
     // Build app, include all routes
     let app = router::root::routes(Arc::new(db_conn));
@@ -43,5 +44,5 @@ async fn main() {
 
     axum::serve(listener, app)
         .await
-        .unwrap_or_else(|e| panic!("Server error: {}", e.to_string()));
+        .unwrap_or_else(|e| panic!("Server error: {}", e));
 }

@@ -44,3 +44,19 @@ pub fn pg_database_username() -> String {
 pub fn pg_database_password() -> Option<String> {
     get("PG_DATABASE_PASSWORD")
 }
+
+pub fn jwt_secret() -> String {
+    get("JWT_SECRET").expect("'JWT_SECRET' is not defined in the environment.")
+}
+
+pub fn jwt_expire_duration() -> u64 {
+    get_or_default("JWT_EXPIRE_DURATION", 3600.to_string())
+        .parse()
+        .expect("'JWT_EXPIRE_DURATION' must be a integer number")
+}
+
+pub fn jwt_hash_cost() -> u32 {
+    get_or_default("JWT_HASH_COST", 4.to_string())
+        .parse()
+        .expect("'JWT_HASH_COST' must be a integer number")
+}
