@@ -3,9 +3,12 @@ use jsonwebtoken::{
     decode, encode, errors::ErrorKind, DecodingKey, EncodingKey, Header, Validation,
 };
 use sqlx::Error as SqlxError;
+use std::collections::HashSet;
 use std::sync::Arc;
 use std::time::{Duration, SystemTime};
 
+use crate::model::auth::PermissionType;
+use crate::util::constants::ROOT_USER_ID;
 use crate::{
     model::auth::{AuthCredentialDto, AuthInfo, LoginDto, TokenClaims},
     repository::user_repository::UserRepository,
@@ -21,14 +24,24 @@ pub trait AuthServiceTrait {
 }
 
 pub struct AuthServiceImpl {
+    root_user: String,
+    root_password: String,
     secret: String,
     expire_duration: u64,
     user_repository: UserRepository,
 }
 
 impl AuthServiceImpl {
-    pub fn new(secret: String, expire_duration: u64, user_repository: UserRepository) -> Self {
+    pub fn new(
+        root_user: String,
+        root_password: String,
+        secret: String,
+        expire_duration: u64,
+        user_repository: UserRepository,
+    ) -> Self {
         AuthServiceImpl {
+            root_user,
+            root_password,
             secret,
             expire_duration,
             user_repository: user_repository.clone(),
@@ -63,23 +76,40 @@ impl AuthServiceImpl {
 #[async_trait]
 impl AuthServiceTrait for AuthServiceImpl {
     async fn login(&self, user: LoginDto) -> Result<AuthCredentialDto, ApiError> {
-        let existing_user = self
-            .user_repository
-            .get_by_email(user.email.clone())
-            .await
-            .map_err(|e| match e {
-                SqlxError::Database(msg) => ServiceError::Database(msg.to_string()),
-                SqlxError::RowNotFound => {
-                    ServiceError::NotFound(format!("No user found with email: {}", user.email))
-                }
-                _ => ServiceError::Unknown,
-            })?;
-        if bcrypt::verify(user.password, &existing_user.password).unwrap_or(false) {
+        let (id, email, password) = if user.email == self.root_user {
+            (
+                ROOT_USER_ID,
+                self.root_user.clone(),
+                self.root_password.clone(),
+            )
+        } else {
+            let existing_user = self
+                .user_repository
+                .get_by_email(user.email.clone())
+                .await
+                .map_err(|e| match e {
+                    SqlxError::Database(msg) => ServiceError::Database(msg.to_string()),
+                    SqlxError::RowNotFound => {
+                        ServiceError::NotFound(format!("No user found with email: {}", user.email))
+                    }
+                    _ => {
+                        tracing::info!("{}", e.to_string());
+                        ServiceError::Unknown
+                    }
+                })?;
+            (
+                existing_user.id,
+                existing_user.email,
+                existing_user.password,
+            )
+        };
+
+        if bcrypt::verify(user.password, &password).unwrap_or(false) {
             Ok(AuthCredentialDto {
-                access_token: self.generate_access_token(existing_user.id, existing_user.email)?,
+                access_token: self.generate_access_token(id, email)?,
             })
         } else {
-            Err(ServiceError::InvalidAuthToken.into())
+            Err(ServiceError::InvalidAuthInfo.into())
         }
     }
 
@@ -94,24 +124,37 @@ impl AuthServiceTrait for AuthServiceImpl {
             _ => ServiceError::InvalidAuthToken,
         })?
         .claims;
-        self.user_repository
-            .get(claims.sub)
-            .await
-            .map(|u| AuthInfo {
-                user_id: u.id,
-                email: u.email,
+        if claims.sub == ROOT_USER_ID {
+            Ok(AuthInfo {
+                user_id: ROOT_USER_ID,
+                email: claims.email,
+                permissions: HashSet::from_iter(PermissionType::VARIANTS.iter().cloned()),
             })
-            .map_err(|e| match e {
-                SqlxError::RowNotFound => ServiceError::InvalidAuthToken.into(),
-                SqlxError::Database(db_err) => ServiceError::Database(db_err.to_string()).into(),
-                _ => ServiceError::Unknown.into(),
-            })
-            .and_then(|u| {
-                if u.email.eq(&claims.email) {
-                    Ok(u)
-                } else {
-                    Err(ServiceError::InvalidAuthToken.into())
-                }
-            })
+        } else {
+            self.user_repository
+                .get(claims.sub)
+                .await
+                .map(|u| AuthInfo {
+                    user_id: u.id,
+                    email: u.email,
+                    permissions: HashSet::from_iter(
+                        u.permissions.into_iter().map(|p| p.name.into()),
+                    ),
+                })
+                .map_err(|e| match e {
+                    SqlxError::RowNotFound => ServiceError::InvalidAuthToken.into(),
+                    SqlxError::Database(db_err) => {
+                        ServiceError::Database(db_err.to_string()).into()
+                    }
+                    _ => ServiceError::Unknown.into(),
+                })
+                .and_then(|u| {
+                    if u.email.eq(&claims.email) {
+                        Ok(u)
+                    } else {
+                        Err(ServiceError::InvalidAuthToken.into())
+                    }
+                })
+        }
     }
 }

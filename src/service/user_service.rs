@@ -81,6 +81,9 @@ impl UserServiceTrait for UserServiceImpl {
             .map(|u| u.into())
             .map_err(|e| match e {
                 SqlxError::Database(db_err) => ServiceError::Database(db_err.to_string()).into(),
+                SqlxError::RowNotFound => {
+                    ServiceError::NotFound(format!("User not found with id: {}", id)).into()
+                }
                 _ => ServiceError::Unknown.into(),
             })
     }

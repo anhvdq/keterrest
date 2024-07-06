@@ -4,7 +4,9 @@ use axum::middleware::from_fn_with_state;
 use axum::{routing::IntoMakeService, Router};
 use tower_http::trace::TraceLayer;
 
-use crate::config::settings::{jwt_expire_duration, jwt_hash_cost, jwt_secret};
+use crate::config::settings::{
+    jwt_expire_duration, jwt_hash_cost, jwt_secret, root_password, root_user,
+};
 use crate::middleware::auth::authorize;
 use crate::repository::user_repository::UserRepository;
 use crate::service::auth_service::{AuthService, AuthServiceImpl};
@@ -26,6 +28,8 @@ pub fn routes(db_conn: Arc<PgDatabase>) -> IntoMakeService<Router> {
     let user_service: UserService = Arc::new(UserServiceImpl::new(Arc::clone(&user_repository)));
 
     let auth_service: AuthService = Arc::new(AuthServiceImpl::new(
+        root_user(),
+        bcrypt::hash(root_password(), jwt_hash_cost()).expect("Root password should be hashable"),
         jwt_secret(),
         jwt_expire_duration(),
         Arc::clone(&user_repository),

@@ -76,7 +76,9 @@ pub enum ServiceError {
     NotFound(String),
     FailedTokenCreation(String),
     InvalidAuthToken,
+    InvalidAuthInfo,
     MissingAuthToken,
+    MissingRequiredPermission(String),
     ExpiredAuthToken,
     Unknown,
 }
@@ -95,9 +97,17 @@ impl From<ServiceError> for ApiError {
                 Some(String::from("Invalid authorization token")),
                 StatusCode::UNAUTHORIZED.as_u16(),
             ),
+            ServiceError::InvalidAuthInfo => ApiError::new(
+                Some(String::from("Invalid username or password")),
+                StatusCode::UNAUTHORIZED.as_u16(),
+            ),
             ServiceError::MissingAuthToken => ApiError::new(
                 Some(String::from("Missing authorization token")),
                 StatusCode::UNAUTHORIZED.as_u16(),
+            ),
+            ServiceError::MissingRequiredPermission(permission) => ApiError::new(
+                Some(format!("Missing required permission: {}", permission)),
+                StatusCode::FORBIDDEN.as_u16(),
             ),
             ServiceError::ExpiredAuthToken => ApiError::new(
                 Some(String::from("Expired authorization token")),
