@@ -1,4 +1,5 @@
 use serde::{Deserialize, Serialize};
+use validator::Validate;
 
 use super::permission::Permission;
 
@@ -21,25 +22,31 @@ pub struct User {
 ///
 /// DTO structs, reflect request / response data
 ///
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, Validate)]
 pub struct CreateUserDto {
+    #[validate(length(min = 4))]
     pub name: String,
+    #[validate(range(min = 10, max = 100))]
     pub age: i32,
+    #[validate(email)]
     pub email: String,
+    #[validate(length(min = 4))]
     pub password: String,
+}
 
-    // Ids of permissions
-    pub permissions: Vec<i32>,
+#[derive(Debug, Clone, Serialize, Deserialize, Validate)]
+pub struct UpdateUserDto {
+    #[validate(length(min = 4))]
+    pub name: Option<String>,
+    #[validate(range(min = 10, max = 100))]
+    pub age: Option<i32>,
+    #[validate(length(min = 4))]
+    pub password: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct UpdateUserDto {
-    pub name: String,
-    pub age: i32,
-    pub password: String,
-
-    // Ids of permissions
-    pub permissions: Option<Vec<i32>>,
+pub struct UpdateUserPermissionDto {
+    pub permissions: Vec<i32>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -50,7 +57,7 @@ pub struct ReadUserDto {
     pub email: String,
 
     // All permissions
-    pub permissions: Vec<String>,
+    pub permissions: Option<Vec<String>>,
 }
 
 impl From<User> for ReadUserDto {
@@ -60,7 +67,8 @@ impl From<User> for ReadUserDto {
             name: value.name,
             age: value.age,
             email: value.email,
-            permissions: value.permissions.into_iter().map(|p| p.name).collect()
+            permissions: (!value.permissions.is_empty())
+                .then_some(value.permissions.into_iter().map(|p| p.name).collect()),
         }
     }
 }

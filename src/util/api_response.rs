@@ -4,7 +4,10 @@ use axum::{
     response::{IntoResponse, Response},
     Json,
 };
+use axum_extra::extract::FormRejection;
+use axum_typed_multipart::TypedMultipartError;
 use serde::Serialize;
+use validator::ValidationErrors;
 
 ///
 /// Wrapper struct for success responses
@@ -56,7 +59,7 @@ impl From<PathRejection> for ApiError {
     fn from(value: PathRejection) -> Self {
         ApiError {
             status: StatusCode::BAD_REQUEST.as_u16(),
-            message: Some(format!("{}", value)),
+            message: Some(value.body_text()),
         }
     }
 }
@@ -65,7 +68,34 @@ impl From<JsonRejection> for ApiError {
     fn from(value: JsonRejection) -> Self {
         ApiError {
             status: StatusCode::BAD_REQUEST.as_u16(),
-            message: Some(format!("{}", value)),
+            message: Some(value.body_text()),
+        }
+    }
+}
+
+impl From<FormRejection> for ApiError {
+    fn from(value: FormRejection) -> Self {
+        ApiError {
+            status: StatusCode::BAD_REQUEST.as_u16(),
+            message: Some(value.to_string()),
+        }
+    }
+}
+
+impl From<TypedMultipartError> for ApiError {
+    fn from(value: TypedMultipartError) -> Self {
+        ApiError {
+            status: StatusCode::BAD_REQUEST.as_u16(),
+            message: Some(value.to_string()),
+        }
+    }
+}
+
+impl From<ValidationErrors> for ApiError {
+    fn from(value: ValidationErrors) -> Self {
+        ApiError {
+            status: StatusCode::BAD_REQUEST.as_u16(),
+            message: Some(value.to_string()),
         }
     }
 }
@@ -74,13 +104,14 @@ impl From<JsonRejection> for ApiError {
 pub enum ServiceError {
     Database(String),
     NotFound(String),
+    BadRequest(String),
     FailedTokenCreation(String),
     InvalidAuthToken,
     InvalidAuthInfo,
     MissingAuthToken,
     MissingRequiredPermission(String),
     ExpiredAuthToken,
-    Unknown,
+    Unknown(String),
 }
 
 impl From<ServiceError> for ApiError {
@@ -90,6 +121,9 @@ impl From<ServiceError> for ApiError {
                 ApiError::new(Some(msg), StatusCode::INTERNAL_SERVER_ERROR.as_u16())
             }
             ServiceError::NotFound(msg) => ApiError::new(Some(msg), StatusCode::NOT_FOUND.as_u16()),
+            ServiceError::BadRequest(msg) => {
+                ApiError::new(Some(msg), StatusCode::BAD_REQUEST.as_u16())
+            }
             ServiceError::FailedTokenCreation(msg) => {
                 ApiError::new(Some(msg), StatusCode::INTERNAL_SERVER_ERROR.as_u16())
             }
@@ -113,8 +147,8 @@ impl From<ServiceError> for ApiError {
                 Some(String::from("Expired authorization token")),
                 StatusCode::UNAUTHORIZED.as_u16(),
             ),
-            ServiceError::Unknown => ApiError::new(
-                Some(String::from("Undefined error")),
+            ServiceError::Unknown(msg) => ApiError::new(
+                Some(format!("Undefined error: {}", msg)),
                 StatusCode::INTERNAL_SERVER_ERROR.as_u16(),
             ),
         }

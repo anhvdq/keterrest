@@ -1,4 +1,4 @@
-use async_trait::async_trait;
+use axum::async_trait;
 use jsonwebtoken::{
     decode, encode, errors::ErrorKind, DecodingKey, EncodingKey, Header, Validation,
 };
@@ -44,7 +44,7 @@ impl AuthServiceImpl {
             root_password,
             secret,
             expire_duration,
-            user_repository: user_repository.clone(),
+            user_repository,
         }
     }
 
@@ -92,10 +92,7 @@ impl AuthServiceTrait for AuthServiceImpl {
                     SqlxError::RowNotFound => {
                         ServiceError::NotFound(format!("No user found with email: {}", user.email))
                     }
-                    _ => {
-                        tracing::info!("{}", e.to_string());
-                        ServiceError::Unknown
-                    }
+                    _ => ServiceError::Unknown(e.to_string()),
                 })?;
             (
                 existing_user.id,
@@ -141,12 +138,13 @@ impl AuthServiceTrait for AuthServiceImpl {
                         u.permissions.into_iter().map(|p| p.name.into()),
                     ),
                 })
-                .map_err(|e| match e {
-                    SqlxError::RowNotFound => ServiceError::InvalidAuthToken.into(),
-                    SqlxError::Database(db_err) => {
-                        ServiceError::Database(db_err.to_string()).into()
+                .map_err(|e| {
+                    match e {
+                        SqlxError::RowNotFound => ServiceError::InvalidAuthToken,
+                        SqlxError::Database(db_err) => ServiceError::Database(db_err.to_string()),
+                        _ => ServiceError::Unknown(e.to_string()),
                     }
-                    _ => ServiceError::Unknown.into(),
+                    .into()
                 })
                 .and_then(|u| {
                     if u.email.eq(&claims.email) {

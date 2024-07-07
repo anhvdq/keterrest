@@ -1,9 +1,10 @@
-use async_trait::async_trait;
+use axum::async_trait;
 use bcrypt;
 use sqlx::Error as SqlxError;
 use sqlx::{Postgres, QueryBuilder};
 use std::sync::Arc;
 
+use crate::model::user::UpdateUserPermissionDto;
 use crate::{
     config::pg_database::{PgDatabase, PgDatabaseTrait},
     model::user::{CreateUserDto, UpdateUserDto, User},
@@ -18,6 +19,11 @@ pub trait UserRepositoryTrait {
     async fn get_by_email(&self, email: String) -> Result<User, SqlxError>;
     async fn get_all(&self) -> Result<Vec<User>, SqlxError>;
     async fn update(&self, id: i32, user: UpdateUserDto) -> Result<User, SqlxError>;
+    async fn update_permissions(
+        &self,
+        id: i32,
+        user: UpdateUserPermissionDto,
+    ) -> Result<User, SqlxError>;
     async fn delete(&self, id: i32) -> Result<bool, SqlxError>;
 }
 
@@ -38,31 +44,16 @@ impl UserRepositoryImpl {
 #[async_trait]
 impl UserRepositoryTrait for UserRepositoryImpl {
     async fn create(&self, user: CreateUserDto) -> Result<User, SqlxError> {
-        let mut tx = self.db_conn.get_pool().begin().await?;
-
         // Must include 'RETURNING *' to return the new record
-        let new_user: User = sqlx::query_as(
+        sqlx::query_as(
             r#"INSERT INTO users(name, age, email, password) VALUES ($1, $2, $3, $4) RETURNING *"#,
         )
         .bind(user.name)
         .bind(user.age)
         .bind(user.email)
         .bind(bcrypt::hash(user.password, self.hash_cost).unwrap())
-        .fetch_one(&mut *tx)
-        .await?;
-
-        if !user.permissions.is_empty() {
-            let mut insert_permissions_builder: QueryBuilder<Postgres> =
-                QueryBuilder::new(r#"INSERT INTO users_permissions(user_id, permission_id) "#);
-            insert_permissions_builder.push_values(user.permissions, |mut b, permission| {
-                b.push_bind(new_user.id).push_bind(permission);
-            });
-            insert_permissions_builder.build().execute(&mut *tx).await?;
-        }
-
-        tx.commit().await?;
-
-        self.get(new_user.id).await
+        .fetch_one(self.db_conn.get_pool())
+        .await
     }
 
     async fn get(&self, id: i32) -> Result<User, SqlxError> {
@@ -118,38 +109,48 @@ impl UserRepositoryTrait for UserRepositoryImpl {
     }
 
     async fn update(&self, id: i32, user: UpdateUserDto) -> Result<User, SqlxError> {
-        let mut tx = self.db_conn.get_pool().begin().await?;
-
         let mut query_builder: QueryBuilder<Postgres> = QueryBuilder::new("UPDATE users SET ");
         let mut separated = query_builder.separated(", ");
 
-        separated.push("name = ").push_bind_unseparated(user.name);
-        separated.push("age = ").push_bind_unseparated(user.age);
-        separated
-            .push("password = ")
-            .push_bind_unseparated(bcrypt::hash(user.password, self.hash_cost).unwrap());
+        if let Some(name) = user.name {
+            separated.push("name = ").push_bind_unseparated(name);
+        }
+        if let Some(age) = user.age {
+            separated.push("age = ").push_bind_unseparated(age);
+        }
+        if let Some(password) = user.password {
+            separated
+                .push("password = ")
+                .push_bind_unseparated(bcrypt::hash(password, self.hash_cost).unwrap());
+        }
 
         let query = query_builder
             .push(" WHERE id = ")
             .push_bind(id)
             .push(" RETURNING *")
-            .build();
+            .build_query_as();
 
-        query.fetch_one(&mut *tx).await?;
+        query.fetch_one(self.db_conn.get_pool()).await
+    }
 
-        if let Some(permissions) = user.permissions {
-            sqlx::query(r#"DELETE FROM users_permissions WHERE user_id = $1"#)
-                .bind(id)
-                .execute(&mut *tx)
-                .await?;
-            if !permissions.is_empty() {
-                let mut insert_permissions_builder: QueryBuilder<Postgres> =
-                    QueryBuilder::new(r#"INSERT INTO users_permissions(user_id, permission_id) "#);
-                insert_permissions_builder.push_values(permissions, |mut b, permission| {
-                    b.push_bind(id).push_bind(permission);
-                });
-                insert_permissions_builder.build().execute(&mut *tx).await?;
-            }
+    async fn update_permissions(
+        &self,
+        id: i32,
+        user: UpdateUserPermissionDto,
+    ) -> Result<User, SqlxError> {
+        let mut tx = self.db_conn.get_pool().begin().await?;
+        let permissions = user.permissions;
+        sqlx::query(r#"DELETE FROM users_permissions WHERE user_id = $1"#)
+            .bind(id)
+            .execute(&mut *tx)
+            .await?;
+        if !permissions.is_empty() {
+            let mut insert_permissions_builder: QueryBuilder<Postgres> =
+                QueryBuilder::new(r#"INSERT INTO users_permissions(user_id, permission_id) "#);
+            insert_permissions_builder.push_values(permissions, |mut b, permission| {
+                b.push_bind(id).push_bind(permission);
+            });
+            insert_permissions_builder.build().execute(&mut *tx).await?;
         }
         tx.commit().await?;
 
@@ -157,10 +158,21 @@ impl UserRepositoryTrait for UserRepositoryImpl {
     }
 
     async fn delete(&self, id: i32) -> Result<bool, SqlxError> {
-        let result = sqlx::query(r#"DELETE FROM users WHERE id = $1"#)
-            .bind(id)
-            .execute(self.db_conn.get_pool())
-            .await;
-        result.map(|r| r.rows_affected() > 0)
+        let user = self.get(id).await?;
+        let mut tx = self.db_conn.get_pool().begin().await?;
+
+        sqlx::query(r#"DELETE FROM users_permissions WHERE user_id = $1"#)
+            .bind(user.id)
+            .execute(&mut *tx)
+            .await?;
+
+        sqlx::query(r#"DELETE FROM users WHERE id = $1"#)
+            .bind(user.id)
+            .execute(&mut *tx)
+            .await?;
+
+        tx.commit().await?;
+
+        Ok(true)
     }
 }

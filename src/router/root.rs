@@ -8,16 +8,18 @@ use crate::config::settings::{
     jwt_expire_duration, jwt_hash_cost, jwt_secret, root_password, root_user,
 };
 use crate::middleware::auth::authorize;
+use crate::repository::file_repository::{FileRepository, FileRepositoryImpl};
 use crate::repository::user_repository::UserRepository;
 use crate::service::auth_service::{AuthService, AuthServiceImpl};
+use crate::service::file_service::{FileService, FileServiceImpl};
 use crate::service::user_service::UserService;
 use crate::{
     config::pg_database::PgDatabase, repository::user_repository::UserRepositoryImpl,
     service::user_service::UserServiceImpl,
 };
 
-use super::auth;
 use super::user;
+use super::{auth, upload};
 
 pub fn routes(db_conn: Arc<PgDatabase>) -> IntoMakeService<Router> {
     // Initialize user service
@@ -34,8 +36,13 @@ pub fn routes(db_conn: Arc<PgDatabase>) -> IntoMakeService<Router> {
         jwt_expire_duration(),
         Arc::clone(&user_repository),
     ));
+
+    let file_repository: FileRepository = Arc::new(FileRepositoryImpl::new());
+    let file_service: FileService = Arc::new(FileServiceImpl::new(Arc::clone(&file_repository)));
+
     let protected = Router::new()
         .merge(user::routes(Arc::clone(&user_service)))
+        .merge(upload::routes(Arc::clone(&file_service)))
         .route_layer(from_fn_with_state(Arc::clone(&auth_service), authorize));
 
     let public = Router::new()

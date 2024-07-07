@@ -1,10 +1,17 @@
 use axum::{
-    extract::{Path, State}, routing::MethodRouter, Extension, Json, Router
+    extract::{Path, State},
+    routing::{patch, MethodRouter},
+    Json, Router,
 };
 use axum_extra::extract::WithRejection;
 
-use crate::service::user_service::UserService;
-use crate::util::api_response::{ApiError, ApiSuccess};
+use crate::{
+    model::user::UpdateUserPermissionDto,
+    util::{
+        api_request::ValidatedJsonOrForm,
+        api_response::{ApiError, ApiSuccess},
+    },
+};
 use crate::{
     model::{
         auth::{AuthInfo, PermissionType},
@@ -12,6 +19,7 @@ use crate::{
     },
     permission_required,
 };
+use crate::{service::user_service::UserService, util::api_request::JsonOrForm};
 use axum::routing::{delete, get, post, put};
 
 pub fn routes(state: UserService) -> Router {
@@ -26,18 +34,26 @@ pub fn routes(state: UserService) -> Router {
             "/users/:id",
             MethodRouter::new()
                 .merge(get(get_user).layer(permission_required!(PermissionType::ReadUser)))
-                .merge(put(update_user).layer(permission_required!(PermissionType::UpdateUser)))
+                .merge(patch(update_user).layer(permission_required!(PermissionType::UpdateUser)))
                 .merge(delete(delete_user).layer(permission_required!(PermissionType::DeleteUser))),
+        )
+        .route(
+            "/users/:id/permissions",
+            MethodRouter::new().merge(
+                put(update_user_permissions)
+                    .layer(permission_required!(PermissionType::UpdateUser)),
+            ),
         )
         .with_state(state)
 }
 
 async fn create_user(
-    Extension(auth_info): Extension<AuthInfo>,
     State(service): State<UserService>,
-    WithRejection(Json(user), _): WithRejection<Json<CreateUserDto>, ApiError>,
+    WithRejection(ValidatedJsonOrForm(user), _): WithRejection<
+        ValidatedJsonOrForm<CreateUserDto>,
+        ApiError,
+    >,
 ) -> Result<Json<ApiSuccess<ReadUserDto>>, ApiError> {
-    auth_info.permissions.iter().for_each(|p| tracing::info!("{}", p.as_str()));
     service.create(user).await.map(ApiSuccess::new).map(Json)
 }
 
@@ -57,10 +73,28 @@ async fn get_users(
 async fn update_user(
     State(service): State<UserService>,
     WithRejection(Path(id), _): WithRejection<Path<u32>, ApiError>,
-    WithRejection(Json(user), _): WithRejection<Json<UpdateUserDto>, ApiError>,
+    WithRejection(ValidatedJsonOrForm(user), _): WithRejection<
+        ValidatedJsonOrForm<UpdateUserDto>,
+        ApiError,
+    >,
 ) -> Result<Json<ApiSuccess<ReadUserDto>>, ApiError> {
     service
         .update(id, user)
+        .await
+        .map(ApiSuccess::new)
+        .map(Json)
+}
+
+async fn update_user_permissions(
+    State(service): State<UserService>,
+    WithRejection(Path(id), _): WithRejection<Path<u32>, ApiError>,
+    WithRejection(JsonOrForm(user), _): WithRejection<
+        JsonOrForm<UpdateUserPermissionDto>,
+        ApiError,
+    >,
+) -> Result<Json<ApiSuccess<ReadUserDto>>, ApiError> {
+    service
+        .update_permissions(id, user)
         .await
         .map(ApiSuccess::new)
         .map(Json)
