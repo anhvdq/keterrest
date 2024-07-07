@@ -1,5 +1,5 @@
 use axum::{
-    extract::State,
+    extract::{DefaultBodyLimit, State},
     routing::{post, MethodRouter},
     Json, Router,
 };
@@ -14,7 +14,10 @@ use crate::{
 
 pub fn routes(state: FileService) -> Router {
     Router::new()
-        .route("/upload", MethodRouter::new().merge(post(upload_file)))
+        .route(
+            "/upload",
+            MethodRouter::new().merge(post(upload_file).layer(DefaultBodyLimit::max(10 * 1024))),
+        )
         .with_state(state)
 }
 async fn upload_file(
