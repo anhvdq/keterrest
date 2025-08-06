@@ -30,19 +30,21 @@ async fn main() {
     // Create database connection
     let db_conn = pg_database::PgDatabase::init()
         .await
-        .unwrap_or_else(|e| panic!("Database error: {}", e));
+        .unwrap_or_else(|e| panic!("Database error: {e}"));
 
     // Build app, include all routes
     let app = router::root::routes(Arc::new(db_conn));
     let port = settings::api_port();
+    let version = env!("CARGO_PKG_VERSION");
 
     // Run the app with hyper, listening globally
-    let listener = tokio::net::TcpListener::bind(format!("0.0.0.0:{}", port))
+    let listener = tokio::net::TcpListener::bind(format!("0.0.0.0:{port}"))
         .await
         .unwrap();
-    tracing::info!("Listening on port {}", listener.local_addr().unwrap());
+    tracing::info!("Listening on port: {}", listener.local_addr().unwrap());
+    tracing::info!("App version: {}", version);
 
     axum::serve(listener, app)
         .await
-        .unwrap_or_else(|e| panic!("Server error: {}", e));
+        .unwrap_or_else(|e| panic!("Server error: {e}"));
 }

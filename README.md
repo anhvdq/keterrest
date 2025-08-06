@@ -30,6 +30,7 @@ Run database migrations
 cargo install sqlx-cli
 
 # Construct DATABASE_URL from .env file
+# This is required for sqlx
 export $(<.env grep -v "^#" | xargs)
 export DATABASE_URL="postgresql://$PG_DATABASE_HOST:$PG_DATABASE_PORT/$PG_DATABASE_DB?user=$PG_DATABASE_USERNAME&password=$PG_DATABASE_PASSWORD"
 

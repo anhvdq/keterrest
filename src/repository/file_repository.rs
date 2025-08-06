@@ -1,5 +1,5 @@
-use axum::{async_trait, body::Bytes};
-use axum_typed_multipart::FieldData;
+use axum::body::Bytes;
+use axum_typed_multipart::{FieldData, async_trait};
 use std::io::Error as SqlxError;
 use std::sync::Arc;
 
@@ -23,7 +23,7 @@ impl FileRepositoryImpl {
 impl FileRepositoryTrait for FileRepositoryImpl {
     async fn save_image(&self, file: FieldData<Bytes>) -> Result<FileResponseDto, SqlxError> {
         let file_name = file.metadata.file_name.unwrap_or(String::from("temp"));
-        let path: String = format!("./data/{}", file_name);
+        let path: String = format!("./data/{file_name}");
         tokio::fs::write(&path, file.contents)
             .await
             .map(|_| FileResponseDto { image: path })

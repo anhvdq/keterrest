@@ -1,7 +1,7 @@
 use std::sync::Arc;
 
-use axum::{async_trait, body::Bytes};
-use axum_typed_multipart::FieldData;
+use axum::body::Bytes;
+use axum_typed_multipart::{FieldData, async_trait};
 
 use crate::{
     model::file::FileResponseDto,

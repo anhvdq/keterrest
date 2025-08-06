@@ -1,8 +1,7 @@
 use axum::{
-    async_trait,
-    extract::{rejection::JsonRejection, FromRequest, Request},
-    http::header::CONTENT_TYPE,
     Json,
+    extract::{FromRequest, Request, rejection::JsonRejection},
+    http::header::CONTENT_TYPE,
 };
 use axum_extra::extract::{Form, FormRejection};
 use validator::Validate;
@@ -11,7 +10,6 @@ use super::api_response::{ApiError, ServiceError};
 
 pub struct JsonOrForm<T>(pub T);
 
-#[async_trait]
 impl<S, T> FromRequest<S> for JsonOrForm<T>
 where
     Json<T>: FromRequest<S, Rejection = JsonRejection>,
@@ -43,7 +41,7 @@ where
 }
 
 pub struct ValidatedJsonOrForm<T>(pub T);
-#[async_trait]
+
 impl<S, T> FromRequest<S> for ValidatedJsonOrForm<T>
 where
     JsonOrForm<T>: FromRequest<S, Rejection = ApiError>,

@@ -1,7 +1,7 @@
 use std::sync::Arc;
 
 use axum::middleware::from_fn_with_state;
-use axum::{routing::IntoMakeService, Router};
+use axum::{Router, routing::IntoMakeService};
 use tower_http::trace::TraceLayer;
 
 use crate::config::settings::{
@@ -49,7 +49,7 @@ pub fn routes(db_conn: Arc<PgDatabase>) -> IntoMakeService<Router> {
         .merge(auth::routes(Arc::clone(&auth_service)))
         .merge(Router::new().route(
             "/health-check",
-            axum::routing::get(|| async { "Still alive" }),
+            axum::routing::get(|| async { format!("App version: {}", env!("CARGO_PKG_VERSION")) }),
         ));
 
     let app_router = Router::new().merge(public).merge(protected);

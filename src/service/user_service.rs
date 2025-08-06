@@ -1,4 +1,4 @@
-use axum::async_trait;
+use axum_typed_multipart::async_trait;
 use sqlx::Error as SqlxError;
 use std::sync::Arc;
 
@@ -95,7 +95,7 @@ impl UserServiceTrait for UserServiceImpl {
                 match e {
                     SqlxError::Database(db_err) => ServiceError::Database(db_err.to_string()),
                     SqlxError::RowNotFound => {
-                        ServiceError::NotFound(format!("User not found with id: {}", id))
+                        ServiceError::NotFound(format!("User not found with id: {id}"))
                     }
                     _ => ServiceError::Unknown(e.to_string()),
                 }
@@ -115,7 +115,7 @@ impl UserServiceTrait for UserServiceImpl {
                 match e {
                     SqlxError::Database(db_err) => ServiceError::Database(db_err.to_string()),
                     SqlxError::RowNotFound => {
-                        ServiceError::NotFound(format!("User not found with id: {}", id))
+                        ServiceError::NotFound(format!("User not found with id: {id}"))
                     }
                     _ => ServiceError::Unknown(e.to_string()),
                 }

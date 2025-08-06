@@ -1,6 +1,6 @@
-use axum::async_trait;
+use axum_typed_multipart::async_trait;
 use jsonwebtoken::{
-    decode, encode, errors::ErrorKind, DecodingKey, EncodingKey, Header, Validation,
+    DecodingKey, EncodingKey, Header, Validation, decode, encode, errors::ErrorKind,
 };
 use sqlx::Error as SqlxError;
 use std::collections::HashSet;

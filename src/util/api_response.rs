@@ -1,8 +1,8 @@
 use axum::{
+    Json,
     extract::rejection::{JsonRejection, PathRejection},
     http::StatusCode,
     response::{IntoResponse, Response},
-    Json,
 };
 use axum_extra::extract::FormRejection;
 use axum_typed_multipart::TypedMultipartError;
@@ -140,7 +140,7 @@ impl From<ServiceError> for ApiError {
                 StatusCode::UNAUTHORIZED.as_u16(),
             ),
             ServiceError::MissingRequiredPermission(permission) => ApiError::new(
-                Some(format!("Missing required permission: {}", permission)),
+                Some(format!("Missing required permission: {permission}")),
                 StatusCode::FORBIDDEN.as_u16(),
             ),
             ServiceError::ExpiredAuthToken => ApiError::new(
@@ -148,7 +148,7 @@ impl From<ServiceError> for ApiError {
                 StatusCode::UNAUTHORIZED.as_u16(),
             ),
             ServiceError::Unknown(msg) => ApiError::new(
-                Some(format!("Undefined error: {}", msg)),
+                Some(format!("Undefined error: {msg}")),
                 StatusCode::INTERNAL_SERVER_ERROR.as_u16(),
             ),
         }

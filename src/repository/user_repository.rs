@@ -1,4 +1,4 @@
-use axum::async_trait;
+use axum_typed_multipart::async_trait;
 use bcrypt;
 use sqlx::Error as SqlxError;
 use sqlx::{Postgres, QueryBuilder};
@@ -58,9 +58,9 @@ impl UserRepositoryTrait for UserRepositoryImpl {
 
     async fn get(&self, id: i32) -> Result<User, SqlxError> {
         sqlx::query_as(
-            r#"SELECT u.id, u.name, u.age, u.email, u.password, 
+            r#"SELECT u.id, u.name, u.age, u.email, u.password,
                 COALESCE(
-                    JSON_AGG(JSONB_BUILD_OBJECT('id', p.id, 'name', p.name)) 
+                    JSON_AGG(JSONB_BUILD_OBJECT('id', p.id, 'name', p.name))
                     FILTER (WHERE p.id IS NOT NULL),
                 '[]') as permissions
             FROM users u
@@ -76,9 +76,9 @@ impl UserRepositoryTrait for UserRepositoryImpl {
 
     async fn get_by_email(&self, email: String) -> Result<User, SqlxError> {
         sqlx::query_as(
-            r#"SELECT u.id, u.name, u.age, u.email, u.password, 
+            r#"SELECT u.id, u.name, u.age, u.email, u.password,
                 COALESCE(
-                    JSON_AGG(JSONB_BUILD_OBJECT('id', p.id, 'name', p.name)) 
+                    JSON_AGG(JSONB_BUILD_OBJECT('id', p.id, 'name', p.name))
                     FILTER (WHERE p.id IS NOT NULL),
                 '[]') as permissions
             FROM users u
@@ -94,9 +94,9 @@ impl UserRepositoryTrait for UserRepositoryImpl {
 
     async fn get_all(&self) -> Result<Vec<User>, SqlxError> {
         sqlx::query_as(
-            r#"SELECT u.id, u.name, u.age, u.email, u.password, 
+            r#"SELECT u.id, u.name, u.age, u.email, u.password,
                 COALESCE(
-                    JSON_AGG(JSONB_BUILD_OBJECT('id', p.id, 'name', p.name)) 
+                    JSON_AGG(JSONB_BUILD_OBJECT('id', p.id, 'name', p.name))
                     FILTER (WHERE p.id IS NOT NULL),
                 '[]') as permissions
             FROM users u

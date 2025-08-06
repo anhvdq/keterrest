@@ -1,7 +1,7 @@
 use axum::{
-    extract::{Path, State},
-    routing::{patch, MethodRouter},
     Json, Router,
+    extract::{Path, State},
+    routing::{MethodRouter, patch},
 };
 use axum_extra::extract::WithRejection;
 
@@ -31,14 +31,14 @@ pub fn routes(state: UserService) -> Router {
                 .merge(post(create_user).layer(permission_required!(PermissionType::CreateUser))),
         )
         .route(
-            "/users/:id",
+            "/users/{id}",
             MethodRouter::new()
                 .merge(get(get_user).layer(permission_required!(PermissionType::ReadUser)))
                 .merge(patch(update_user).layer(permission_required!(PermissionType::UpdateUser)))
                 .merge(delete(delete_user).layer(permission_required!(PermissionType::DeleteUser))),
         )
         .route(
-            "/users/:id/permissions",
+            "/users/{id}/permissions",
             MethodRouter::new().merge(
                 put(update_user_permissions)
                     .layer(permission_required!(PermissionType::UpdateUser)),

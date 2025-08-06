@@ -1,19 +1,20 @@
 [package]
 name = "keter-rest"
-version = "0.1.0"
-edition = "2021"
+version = "0.2.0"
+edition = "2024"
+license = "Apache-2.0"
 
 [dependencies]
-axum = { version = "0.7.5", features = ["macros"] }
-axum-extra = { version = "0.9.3", features = ["typed-header", "form"] }
-axum_typed_multipart = "0.11.1"
-bcrypt = "0.15.1"
+axum = { version = "0.8.4", features = ["macros"] }
+axum-extra = { version = "0.10.1", features = ["typed-header", "form"] }
+axum_typed_multipart = "0.16.3"
+bcrypt = "0.17.0"
 dotenv = "0.15.0"
-jsonwebtoken = "9.3.0"
-serde = "1.0.203"
-sqlx = { version = "0.7.4", features = ["runtime-tokio", "tls-native-tls", "postgres"] }
-tokio = { version = "1.4.0", features = ["rt", "rt-multi-thread", "macros"] }
-tower-http = { version = "0.5.2", features = ["trace"] }
-tracing = "0.1.40"
-tracing-subscriber = { version = "0.3.18", features = ["env-filter"] }
-validator = { version = "0.18.1", features = ["derive"] }
+jsonwebtoken = "9.3.1"
+serde = "1.0.219"
+sqlx = { version = "0.8.6", features = ["runtime-tokio", "tls-native-tls", "postgres"] }
+tokio = { version = "1.47.1", features = ["rt", "rt-multi-thread", "macros"] }
+tower-http = { version = "0.6.6", features = ["trace"] }
+tracing = "0.1.41"
+tracing-subscriber = { version = "0.3.19", features = ["env-filter"] }
+validator = { version = "0.20.0", features = ["derive"] }

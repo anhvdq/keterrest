@@ -1,7 +1,7 @@
 use axum::{
-    extract::{DefaultBodyLimit, State},
-    routing::{post, MethodRouter},
     Json, Router,
+    extract::{DefaultBodyLimit, State},
+    routing::{MethodRouter, post},
 };
 use axum_extra::extract::WithRejection;
 use axum_typed_multipart::TypedMultipart;
